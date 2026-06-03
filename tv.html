@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel do Paciente - Chamada de Senhas</title>
+  
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  
+  <style>
+    /* ================================================================
+       RESET & BASE - OTIMIZADO PARA TV
+    ================================================================ */
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      background: #0a0a1a;
+      color: #fff;
+    }
+
+    /* ================================================================
+       LAYOUT PRINCIPAL - DIVIDIDO
+    ================================================================ */
+    .tv-container {
+      display: flex;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* LADO ESQUERDO - PLAYER DE VÍDEO (65%) */
+    .video-section {
+      flex: 0 0 65%;
+      height: 100vh;
+      background: #000;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .video-section iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      pointer-events: none; /* Bloqueia interação na TV */
+    }
+
+    /* LADO DIREITO - INFORMAÇÕES DE SENHA (35%) */
+    .senha-section {
+      flex: 0 0 35%;
+      height: 100vh;
+      background: linear-gradient(180deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2vh 2vw;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ================================================================
+       EFEITO DE FLASH NA TELA
+    ================================================================ */
+    .flash-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle, rgba(255, 215, 0, 0.4), rgba(255, 215, 0, 0));
+      pointer-events: none;
+      z-index: 999;
+      opacity: 0;
+      transition: opacity 0.1s;
+    }
+
+    .flash-overlay.active {
+      opacity: 1;
+      animation: flashAnim 0.6s ease-out forwards;
+    }
+
+    @keyframes flashAnim {
+      0% { opacity: 0.8; }
+      50% { opacity: 0.4; }
+      100% { opacity: 0; }
+    }
+
+    /* ================================================================
+       SENHA ATUAL - LETRAS GIGANTES
+    ================================================================ */
+    .senha-atual-container {
+      text-align: center;
+      margin-bottom: 2vh;
+    }
+
+    .senha-label {
+      font-size: clamp(1rem, 2vw, 2rem);
+      color: rgba(255, 255, 255, 0.5);
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      font-weight: 300;
+      margin-bottom: 0.5vh;
+    }
+
+    .senha-numero {
+      font-size: clamp(5rem, 14vw, 18rem);
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: 5px;
+      transition: color 0.3s;
+      /* Gradiente padrão */
+      background: linear-gradient(135deg, #f5af19, #f12711);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Efeito de piscar */
+    .senha-numero.blink-active {
+      animation: blinkEffect 0.5s ease-in-out 6;
+      background: linear-gradient(135deg, #ff0000, #ffcc00);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    @keyframes blinkEffect {
+      0%, 100% { 
+        opacity: 1;
+        text-shadow: 0 0 30px rgba(255, 215, 0, 0.5), 0 0 60px rgba(255, 215, 0, 0.3);
+      }
+      50% { 
+        opacity: 0.3;
+        text-shadow: 0 0 60px rgba(255, 0, 0, 0.8), 0 0 120px rgba(255, 0, 0, 0.5);
+      }
+    }
+
+    /* ================================================================
+       GUICHÊ ATUAL
+    ================================================================ */
+    .guiche-info {
+      font-size: clamp(1.5rem, 3.5vw, 4rem);
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.85);
+      margin-top: 0.5vh;
+    }
+
+    .guiche-info .guiche-icon {
+      margin-right: 10px;
+    }
+
+    .guiche-info .guiche-destaque {
+      color: #f5af19;
+    }
+
+    /* ================================================================
+       BADGE "ATENÇÃO" (animado durante chamada)
+    ================================================================ */
+    .atencao-badge {
+      display: inline-block;
+      margin-top: 1vh;
+      padding: 0.5vh 2vw;
+      background: rgba(255, 215, 0, 0.15);
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      border-radius: 50px;
+      color: #f5af19;
+      font-size: clamp(0.8rem, 1.2vw, 1.5rem);
+      font-weight: 600;
+      letter-spacing: 2px;
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+
+    .atencao-badge.active {
+      opacity: 1;
+      animation: pulseBadge 1s infinite;
+    }
+
+    @keyframes pulseBadge {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.7; }
+    }
+
+    /* ================================================================
+       HISTÓRICO - ÚLTIMAS SENHAS
+    ================================================================ */
+    .historico-container {
+      position: absolute;
+      bottom: 3vh;
+      left: 2vw;
+      right: 2vw;
+      text-align: center;
+    }
+
+    .historico-label {
+      font-size: clamp(0.7rem, 1vw, 1.2rem);
+      color: rgba(255, 255, 255, 0.3);
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      margin-bottom: 1vh;
+    }
+
+    .historico-list {
+      display: flex;
+      justify-content: center;
+      gap: 1.5vw;
+      flex-wrap: wrap;
+    }
+
+    .historico-item {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 0.8vh 1.5vw;
+      text-align: center;
+      min-width: 8vw;
+      animation: slideIn 0.4s ease-out;
+      transition: all 0.3s;
+    }
+
+    .historico-item .hist-senha {
+      font-size: clamp(1.2rem, 2.5vw, 3rem);
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .historico-item .hist-guiche {
+      font-size: clamp(0.6rem, 1vw, 1.2rem);
+      color: rgba(255, 255, 255, 0.35);
+      margin-top: 0.3vh;
+    }
+
+    .historico-item:first-child {
+      background: rgba(255, 215, 0, 0.08);
+      border-color: rgba(255, 215, 0, 0.2);
+    }
+
+    .historico-item:first-child .hist-senha {
+      color: #f5af19;
+    }
+
+    @keyframes slideIn {
+      0% {
+        opacity: 0;
+        transform: translateY(20px) scale(0.9);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* ================================================================
+       STATUS DA CONEXÃO (cantos)
+    ================================================================ */
+    .connection-status {
+      position: fixed;
+      bottom: 1vh;
+      right: 1vw;
+      font-size: 0.7rem;
+      color: rgba(255, 255, 255, 0.2);
+      z-index: 10;
+    }
+
+    .connection-status .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+
+    .connection-status .dot.online {
+      background: #4ade80;
+      box-shadow: 0 0 8px #4ade80;
+    }
+
+    .connection-status .dot.offline {
+      background: #f87171;
+    }
+
+    /* ================================================================
+       RESPONSIVO PARA TV 4K / FULL HD
+    ================================================================ */
+    @media (min-width: 1920px) {
+      .senha-section {
+        padding: 3vh 3vw;
+      }
+    }
+
+    @media (max-aspect-ratio: 16/9) {
+      .video-section {
+        flex: 0 0 60%;
+      }
+      .senha-section {
+        flex: 0 0 40%;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .tv-container {
+        flex-direction: column;
+      }
+      .video-section {
+        flex: 0 0 50vh;
+        width: 100%;
+      }
+      .senha-section {
+        flex: 0 0 50vh;
+        width: 100%;
+      }
+      .senha-numero {
+        font-size: clamp(4rem, 20vw, 8rem);
+      }
+      .historico-item {
+        min-width: 15vw;
+      }
+    }
+
+    /* Evita seleção e cursor na TV */
+    body {
+      cursor: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- FLASH OVERLAY -->
+  <div class="flash-overlay" id="flashOverlay"></div>
+
+  <div class="tv-container">
+    
+    <!-- LADO ESQUERDO: PLAYER YOUTUBE -->
+    <div class="video-section">
+      <iframe 
+        id="youtubePlayer"
+        src="https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&mute=1&loop=1&playlist=jfKfPfyJRdk&controls=0&showinfo=0&rel=0&disablekb=1&modestbranding=1&iv_load_policy=3"
+        allow="autoplay; encrypted-media"
+        allowfullscreen>
+      </iframe>
+    </div>
+
+    <!-- LADO DIREITO: SENHAS -->
+    <div class="senha-section">
+
+      <!-- SENHA ATUAL -->
+      <div class="senha-atual-container">
+        <div class="senha-label">⏳ Senha Atual</div>
+        <div class="senha-numero" id="senhaAtualDisplay">---</div>
+        <div class="guiche-info" id="guicheDisplay">
+          <span class="guiche-icon">📍</span>
+          Dirija-se ao <span class="guiche-destaque" id="guicheTexto">---</span>
+        </div>
+        <div class="atencao-badge" id="atencaoBadge">🔔 ATENÇÃO!</div>
+      </div>
+
+      <!-- HISTÓRICO -->
+      <div class="historico-container">
+        <div class="historico-label">📋 Últimas Senhas</div>
+        <div class="historico-list" id="historicoList">
+          <div class="historico-item">
+            <div class="hist-senha">---</div>
+            <div class="hist-guiche">---</div>
+          </div>
+          <div class="historico-item">
+            <div class="hist-senha">---</div>
+            <div class="hist-guiche">---</div>
+          </div>
+          <div class="historico-item">
+            <div class="hist-senha">---</div>
+            <div class="hist-guiche">---</div>
+          </div>
+          <div class="historico-item">
+            <div class="hist-senha">---</div>
+            <div class="hist-guiche">---</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATUS DA CONEXÃO -->
+  <div class="connection-status">
+    <span class="dot online" id="tvStatusDot"></span>
+    <span id="tvStatusText">conectado</span>
+  </div>
+
+  <script>
+    // ================================================================
+    // SUPABASE CONFIG
+    // ================================================================
+    const SUPABASE_URL = 'https://vicxjzsfqloedmayejoy.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpY3hqenNmcWxvZWRtYXllam95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0NTUxMDcsImV4cCI6MjA5NjAzMTEwN30.oYHkOqAdizsJqFie8nJmZLk8IAFlu3pFuWeotXIJTCs';
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // ================================================================
+    // DOM REFS
+    // ================================================================
+    const senhaDisplay = document.getElementById('senhaAtualDisplay');
+    const guicheTexto = document.getElementById('guicheTexto');
+    const guicheDisplay = document.getElementById('guicheDisplay');
+    const historicoList = document.getElementById('historicoList');
+    const atencaoBadge = document.getElementById('atencaoBadge');
+    const flashOverlay = document.getElementById('flashOverlay');
+    const tvStatusDot = document.getElementById('tvStatusDot');
+    const tvStatusText = document.getElementById('tvStatusText');
+
+    // ================================================================
+    // SISTEMA DE ÁUDIO - Web Audio API
+    // ================================================================
+    let audioCtx = null;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      return audioCtx;
+    }
+
+    function playChamadaSom() {
+      try {
+        const ctx = getAudioContext();
+        if (ctx.state === 'suspended') ctx.resume();
+
+        const now = ctx.currentTime;
+
+        // Primeiro tom (agudo)
+        const osc1 = ctx.createOscillator();
+        const gain1 = ctx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(880, now); // Lá5
+        gain1.gain.setValueAtTime(0.3, now);
+        gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+        osc1.connect(gain1);
+        gain1.connect(ctx.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.4);
+
+        // Segundo tom (mais grave, harmônico)
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(660, now + 0.15); // Mi5
+        gain2.gain.setValueAtTime(0.25, now + 0.15);
+        gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.start(now + 0.15);
+        osc2.stop(now + 0.5);
+
+        // Gongo (sustentado) - terceiro tom
+        const osc3 = ctx.createOscillator();
+        const gain3 = ctx.createGain();
+        osc3.type = 'triangle';
+        osc3.frequency.setValueAtTime(440, now + 0.05); // Lá4
+        gain3.gain.setValueAtTime(0.15, now + 0.05);
+        gain3.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+        osc3.connect(gain3);
+        gain3.connect(ctx.destination);
+        osc3.start(now + 0.05);
+        osc3.stop(now + 0.8);
+      } catch (e) {
+        console.log('Audio play error:', e);
+      }
+    }
+
+    function playChamarNovamenteSom() {
+      try {
+        const ctx = getAudioContext();
+        if (ctx.state === 'suspended') ctx.resume();
+
+        const now = ctx.currentTime;
+
+        // Som diferente: dois bips rápidos
+        for (let i = 0; i < 2; i++) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(600, now + i * 0.2); // Ré5
+          gain.gain.setValueAtTime(0.2, now + i * 0.2);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.2 + 0.15);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + i * 0.2);
+          osc.stop(now + i * 0.2 + 0.15);
+        }
+
+        // Um tom mais longo no final
+        const osc3 = ctx.createOscillator();
+        const gain3 = ctx.createGain();
+        osc3.type = 'sine';
+        osc3.frequency.setValueAtTime(880, now + 0.4);
+        gain3.gain.setValueAtTime(0.25, now + 0.4);
+        gain3.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+        osc3.connect(gain3);
+        gain3.connect(ctx.destination);
+        osc3.start(now + 0.4);
+        osc3.stop(now + 0.8);
+      } catch (e) {
+        console.log('Audio play error:', e);
+      }
+    }
+
+    // ================================================================
+    // EFEITOS VISUAIS
+    // ================================================================
+    let blinkTimeout = null;
+    let badgeTimeout = null;
+
+    function triggerEfeitos() {
+      // 1. Flash na tela
+      flashOverlay.classList.remove('active');
+      // Força reflow para reiniciar animação
+      void flashOverlay.offsetWidth;
+      flashOverlay.classList.add('active');
+      setTimeout(() => flashOverlay.classList.remove('active'), 600);
+
+      // 2. Piscar número (3 segundos = 6 piscadas de 0.5s)
+      senhaDisplay.classList.remove('blink-active');
+      void senhaDisplay.offsetWidth;
+      senhaDisplay.classList.add('blink-active');
+      
+      clearTimeout(blinkTimeout);
+      blinkTimeout = setTimeout(() => {
+        senhaDisplay.classList.remove('blink-active');
+      }, 3500);
+
+      // 3. Badge de atenção
+      atencaoBadge.classList.add('active');
+      clearTimeout(badgeTimeout);
+      badgeTimeout = setTimeout(() => {
+        atencaoBadge.classList.remove('active');
+      }, 4000);
+    }
+
+    function triggerChamada() {
+      playChamadaSom();
+      triggerEfeitos();
+    }
+
+    function triggerChamarNovamente() {
+      playChamarNovamenteSom();
+      triggerEfeitos();
+    }
+
+    // ================================================================
+    // ATUALIZAÇÃO DA UI
+    // ================================================================
+    function updateSenhaAtual(data) {
+      if (data && data.numero > 0) {
+        senhaDisplay.textContent = data.senha_formatada || `S${String(data.numero).padStart(3, '0')}`;
+        guicheTexto.textContent = data.guiche || '---';
+        guicheDisplay.style.display = 'block';
+      }
+    }
+
+    function updateHistorico(historico) {
+      historicoList.innerHTML = '';
+      
+      if (!historico || historico.length === 0) {
+        for (let i = 0; i < 4; i++) {
+          const item = document.createElement('div');
+          item.className = 'historico-item';
+          item.innerHTML = `
+            <div class="hist-senha">---</div>
+            <div class="hist-guiche">---</div>
+          `;
+          historicoList.appendChild(item);
+        }
+        return;
+      }
+
+      // Pega os 4 mais recentes (já ordenados por timestamp desc)
+      const recentes = historico.slice(0, 4);
+      
+      recentes.forEach((item) => {
+        const el = document.createElement('div');
+        el.className = 'historico-item';
+        el.innerHTML = `
+          <div class="hist-senha">${item.senha_formatada}</div>
+          <div class="hist-guiche">${item.guiche}</div>
+        `;
+        historicoList.appendChild(el);
+      });
+
+      // Preenche com placeholders se tiver menos de 4
+      for (let i = recentes.length; i < 4; i++) {
+        const item = document.createElement('div');
+        item.className = 'historico-item';
+        item.innerHTML = `
+          <div class="hist-senha">---</div>
+          <div class="hist-guiche">---</div>
+        `;
+        historicoList.appendChild(item);
+      }
+    }
+
+    // ================================================================
+    // CARREGAR ESTADO INICIAL
+    // ================================================================
+    async function loadInitialState() {
+      try {
+        // Carrega senha atual
+        const { data: senhaAtual, error: senhaErr } = await supabase
+          .from('senha_atual')
+          .select('*')
+          .eq('id', 1)
+          .single();
+        
+        if (!senhaErr && senhaAtual) {
+          updateSenhaAtual(senhaAtual);
+        }
+
+        // Carrega histórico
+        const { data: historico, error: histErr } = await supabase
+          .from('historico')
+          .select('*')
+          .order('timestamp', { ascending: false })
+          .limit(4);
+        
+        if (!histErr) {
+          updateHistorico(historico || []);
+        }
+
+        // Status online
+        tvStatusDot.className = 'dot online';
+        tvStatusText.textContent = 'conectado';
+      } catch (err) {
+        console.error('Erro ao carregar estado:', err);
+        tvStatusDot.className = 'dot offline';
+        tvStatusText.textContent = 'offline';
+      }
+    }
+
+    // ================================================================
+    // REAL-TIME LISTENERS
+    // ================================================================
+    function setupRealtime() {
+      let ultimaSenhaTimestamp = 0;
+      let ultimoTriggerTimestamp = 0;
+
+      // 1. Escuta mudanças na senha_atual
+      supabase
+        .channel('tv-senha-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'senha_atual',
+            filter: 'id=eq.1'
+          },
+          (payload) => {
+            const novo = payload.new;
+            
+            // Evita duplicar se o timestamp for igual
+            if (novo.timestamp && novo.timestamp <= ultimaSenhaTimestamp) return;
+            ultimaSenhaTimestamp = novo.timestamp;
+
+            updateSenhaAtual(novo);
+            
+            if (novo.numero > 0) {
+              triggerChamada();
+            }
+          }
+        )
+        .subscribe();
+
+      // 2. Escuta trigger "chamar novamente"
+      supabase
+        .channel('tv-trigger-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'trigger_chamar',
+            filter: 'id=eq.1'
+          },
+          (payload) => {
+            const novo = payload.new;
+            
+            // Evita duplicar
+            if (novo.timestamp && novo.timestamp <= ultimoTriggerTimestamp) return;
+            ultimoTriggerTimestamp = novo.timestamp;
+
+            triggerChamarNovamente();
+          }
+        )
+        .subscribe();
+
+      // 3. Escuta inserções no histórico
+      supabase
+        .channel('tv-historico-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'historico'
+          },
+          async () => {
+            // Busca histórico atualizado
+            const { data: historico } = await supabase
+              .from('historico')
+              .select('*')
+              .order('timestamp', { ascending: false })
+              .limit(4);
+            
+            if (historico) {
+              updateHistorico(historico);
+            }
+          }
+        )
+        .subscribe();
+    }
+
+    // ================================================================
+    // ATIVAÇÃO DO ÁUDIO (necessário para Web Audio API)
+    // ================================================================
+    function enableAudio() {
+      getAudioContext().resume();
+      document.removeEventListener('click', enableAudio);
+      document.removeEventListener('touchstart', enableAudio);
+      document.removeEventListener('keydown', enableAudio);
+    }
+
+    document.addEventListener('click', enableAudio);
+    document.addEventListener('touchstart', enableAudio);
+    document.addEventListener('keydown', enableAudio);
+
+    // ================================================================
+    // INICIALIZAÇÃO
+    // ================================================================
+    loadInitialState();
+    setupRealtime();
+    console.log('📺 Painel do Paciente (TV) iniciado com Supabase');
+  </script>
+</body>
+</html>

@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel do Atendente - Sistema de Senhas</title>
+  
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  
+  <style>
+    /* ================================================================
+       RESET & BASE
+    ================================================================ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    /* ================================================================
+       CONTAINER PRINCIPAL
+    ================================================================ */
+    .dashboard {
+      width: 100%;
+      max-width: 900px;
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 30px;
+      padding: 40px;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+    }
+
+    .dashboard-header {
+      text-align: center;
+      margin-bottom: 35px;
+    }
+
+    .dashboard-header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #f093fb, #f5576c);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .dashboard-header p {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 0.95rem;
+      margin-top: 5px;
+    }
+
+    /* ================================================================
+       STATUS BAR
+    ================================================================ */
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 15px;
+      padding: 15px 25px;
+      margin-bottom: 30px;
+      font-size: 0.9rem;
+    }
+
+    .status-bar .label {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .status-bar .value {
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    .status-dot.online {
+      background: #4ade80;
+      box-shadow: 0 0 10px #4ade80;
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot.offline {
+      background: #f87171;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* ================================================================
+       SELETOR DE GUICHÊ
+    ================================================================ */
+    .form-section {
+      margin-bottom: 25px;
+    }
+
+    .form-section label {
+      display: block;
+      font-size: 0.95rem;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    select, input[type="text"] {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 14px 18px;
+      color: #fff;
+      font-size: 1rem;
+      outline: none;
+      transition: all 0.3s;
+      flex: 1;
+      min-width: 200px;
+    }
+
+    select:hover, input[type="text"]:hover,
+    select:focus, input[type="text"]:focus {
+      border-color: rgba(255, 255, 255, 0.4);
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    select option {
+      background: #1a1a2e;
+      color: #fff;
+    }
+
+    /* ================================================================
+       BOTÕES PRINCIPAIS
+    ================================================================ */
+    .btn-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 16px;
+      padding: 22px 30px;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn:active {
+      transform: scale(0.96);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      box-shadow: 0 12px 35px rgba(102, 126, 234, 0.6);
+      transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+      background: linear-gradient(135deg, #f093fb, #f5576c);
+      box-shadow: 0 8px 25px rgba(245, 87, 108, 0.4);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      box-shadow: 0 12px 35px rgba(245, 87, 108, 0.6);
+      transform: translateY(-2px);
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, #43e97b, #38f9d7);
+      color: #1a1a2e;
+      box-shadow: 0 8px 25px rgba(67, 233, 123, 0.3);
+    }
+
+    .btn-success:hover:not(:disabled) {
+      box-shadow: 0 12px 35px rgba(67, 233, 123, 0.5);
+      transform: translateY(-2px);
+    }
+
+    .btn .icon {
+      font-size: 1.6rem;
+    }
+
+    .btn .badge {
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      font-size: 0.7rem;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-weight: 400;
+    }
+
+    /* ================================================================
+       BOTÃO SENHA MANUAL (expansível)
+    ================================================================ */
+    .manual-section {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      padding: 18px;
+      margin-top: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .manual-toggle {
+      background: none;
+      border: none;
+      color: rgba(255, 255, 255, 0.6);
+      cursor: pointer;
+      font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 0;
+      transition: color 0.3s;
+    }
+
+    .manual-toggle:hover {
+      color: #fff;
+    }
+
+    .manual-toggle .arrow {
+      transition: transform 0.3s;
+      display: inline-block;
+    }
+
+    .manual-toggle .arrow.open {
+      transform: rotate(180deg);
+    }
+
+    .manual-form {
+      display: none;
+      margin-top: 15px;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .manual-form.visible {
+      display: flex;
+    }
+
+    .manual-form input {
+      flex: 1;
+      min-width: 120px;
+    }
+
+    .manual-form .btn {
+      padding: 14px 25px;
+      font-size: 1rem;
+      flex: 0 0 auto;
+    }
+
+    /* ================================================================
+       ÚLTIMA SENHA CHAMADA (preview)
+    ================================================================ */
+    .last-senha-display {
+      text-align: center;
+      padding: 25px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      margin-top: 15px;
+    }
+
+    .last-senha-display .label {
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.4);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .last-senha-display .senha-numero {
+      font-size: 2.5rem;
+      font-weight: 800;
+      margin: 5px 0;
+      background: linear-gradient(135deg, #f093fb, #f5576c);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .last-senha-display .guiche-info {
+      font-size: 1.2rem;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    /* ================================================================
+       NOTIFICAÇÃO TOAST
+    ================================================================ */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      padding: 16px 28px;
+      border-radius: 12px;
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.95rem;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.4s ease;
+      z-index: 9999;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .toast.success {
+      background: linear-gradient(135deg, #43e97b, #38f9d7);
+      color: #1a1a2e;
+    }
+
+    .toast.error {
+      background: linear-gradient(135deg, #f5576c, #f093fb);
+    }
+
+    /* ================================================================
+       RESPONSIVO
+    ================================================================ */
+    @media (max-width: 600px) {
+      .dashboard {
+        padding: 20px;
+      }
+      .btn-group {
+        grid-template-columns: 1fr;
+      }
+      .btn {
+        padding: 18px 20px;
+        font-size: 1.1rem;
+      }
+      .dashboard-header h1 {
+        font-size: 1.5rem;
+      }
+    }
+
+    /* Spinner de loading */
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+    
+    <!-- HEADER -->
+    <div class="dashboard-header">
+      <h1>🎯 Painel do Atendente</h1>
+      <p>Sistema de Chamada de Senhas · Tempo Real</p>
+    </div>
+
+    <!-- STATUS BAR -->
+    <div class="status-bar">
+      <div>
+        <span class="status-dot online" id="statusDot"></span>
+        <span id="statusText">Conectado ao Supabase</span>
+      </div>
+      <div>
+        <span class="label">Última senha:</span>
+        <span class="value" id="ultimaSenhaInfo">---</span>
+      </div>
+    </div>
+
+    <!-- SELETOR DE GUICHÊ -->
+    <div class="form-section">
+      <label>🏢 Selecione seu Guichê / Consultório</label>
+      <div class="form-row">
+        <select id="guicheSelect">
+          <option value="Guichê 01">Guichê 01</option>
+          <option value="Guichê 02">Guichê 02</option>
+          <option value="Guichê 03">Guichê 03</option>
+          <option value="Guichê 04">Guichê 04</option>
+          <option value="Guichê 05">Guichê 05</option>
+          <option value="Guichê 06">Guichê 06</option>
+          <option value="Guichê 07">Guichê 07</option>
+          <option value="Guichê 08">Guichê 08</option>
+          <option value="Consultório 01">Consultório 01</option>
+          <option value="Consultório 02">Consultório 02</option>
+          <option value="custom">✏️ Personalizado...</option>
+        </select>
+        <input type="text" id="guicheCustom" placeholder="Digite o guichê..." style="display:none;" />
+      </div>
+    </div>
+
+    <!-- BOTÕES PRINCIPAIS -->
+    <div class="btn-group">
+      <button class="btn btn-primary" id="btnProxima">
+        <span class="icon">📟</span>
+        Chamar Próxima Senha
+        <span class="badge">Enter</span>
+      </button>
+      <button class="btn btn-secondary" id="btnChamarNovamente">
+        <span class="icon">🔊</span>
+        Chamar Novamente
+        <span class="badge">Espaço</span>
+      </button>
+    </div>
+
+    <!-- SENHA MANUAL -->
+    <div class="manual-section">
+      <button class="manual-toggle" id="manualToggle">
+        <span class="arrow" id="manualArrow">▶</span>
+        Digitar senha manualmente
+      </button>
+      <div class="manual-form" id="manualForm">
+        <input type="number" id="manualNumero" placeholder="Número da senha (ex: 15)" min="1" />
+        <button class="btn btn-success" id="btnManual">
+          <span class="icon">✓</span>
+          Chamar
+        </button>
+      </div>
+    </div>
+
+    <!-- ÚLTIMA SENHA -->
+    <div class="last-senha-display">
+      <div class="label">Última senha chamada</div>
+      <div class="senha-numero" id="previewSenha">---</div>
+      <div class="guiche-info" id="previewGuiche">---</div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ================================================================
+    // SUPABASE CONFIG
+    // ================================================================
+    const SUPABASE_URL = 'https://vicxjzsfqloedmayejoy.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpY3hqenNmcWxvZWRtYXllam95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0NTUxMDcsImV4cCI6MjA5NjAzMTEwN30.oYHkOqAdizsJqFie8nJmZLk8IAFlu3pFuWeotXIJTCs';
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // ================================================================
+    // DOM REFS
+    // ================================================================
+    const guicheSelect = document.getElementById('guicheSelect');
+    const guicheCustom = document.getElementById('guicheCustom');
+    const btnProxima = document.getElementById('btnProxima');
+    const btnChamarNovamente = document.getElementById('btnChamarNovamente');
+    const btnManual = document.getElementById('btnManual');
+    const manualToggle = document.getElementById('manualToggle');
+    const manualForm = document.getElementById('manualForm');
+    const manualArrow = document.getElementById('manualArrow');
+    const manualNumero = document.getElementById('manualNumero');
+    const previewSenha = document.getElementById('previewSenha');
+    const previewGuiche = document.getElementById('previewGuiche');
+    const ultimaSenhaInfo = document.getElementById('ultimaSenhaInfo');
+    const statusText = document.getElementById('statusText');
+    const statusDot = document.getElementById('statusDot');
+    const toast = document.getElementById('toast');
+
+    let isLoading = false;
+
+    // ================================================================
+    // FUNÇÕES DE AJUDA
+    // ================================================================
+    function getGuiche() {
+      if (guicheSelect.value === 'custom') {
+        return guicheCustom.value.trim() || 'Guichê Personalizado';
+      }
+      return guicheSelect.value;
+    }
+
+    function showToast(message, type = 'success') {
+      toast.textContent = message;
+      toast.className = `toast ${type} show`;
+      setTimeout(() => toast.classList.remove('show'), 3500);
+    }
+
+    function setLoading(loading) {
+      isLoading = loading;
+      btnProxima.disabled = loading;
+      btnChamarNovamente.disabled = loading;
+      btnManual.disabled = loading;
+    }
+
+    function updatePreview(senha, guiche) {
+      previewSenha.textContent = senha;
+      previewGuiche.textContent = `📍 ${guiche}`;
+      ultimaSenhaInfo.textContent = senha;
+    }
+
+    // ================================================================
+    // FUNÇÕES SUPABASE
+    // ================================================================
+    async function chamarProximaSenha() {
+      if (isLoading) return;
+      setLoading(true);
+      try {
+        const guiche = getGuiche();
+
+        // 1. Pega contador atual e incrementa
+        const { data: contData, error: contErr } = await supabase
+          .from('contador')
+          .select('valor')
+          .eq('id', 1)
+          .single();
+        if (contErr) throw contErr;
+
+        const novoNumero = (contData.valor || 0) + 1;
+        const senhaFormatada = `S${String(novoNumero).padStart(3, '0')}`;
+        const timestamp = Date.now();
+
+        // 2. Atualiza contador
+        const { error: upErr } = await supabase
+          .from('contador')
+          .update({ valor: novoNumero })
+          .eq('id', 1);
+        if (upErr) throw upErr;
+
+        // 3. Atualiza senha_atual
+        const { error: senhaErr } = await supabase
+          .from('senha_atual')
+          .update({
+            numero: novoNumero,
+            guiche: guiche,
+            timestamp: timestamp,
+            senha_formatada: senhaFormatada
+          })
+          .eq('id', 1);
+        if (senhaErr) throw senhaErr;
+
+        // 4. Insere no histórico
+        const { error: histErr } = await supabase
+          .from('historico')
+          .insert({
+            numero: novoNumero,
+            guiche: guiche,
+            timestamp: timestamp,
+            senha_formatada: senhaFormatada
+          });
+        if (histErr) throw histErr;
+
+        updatePreview(senhaFormatada, guiche);
+        showToast(`✅ Senha ${senhaFormatada} chamada para ${guiche}!`);
+      } catch (err) {
+        console.error('Erro ao chamar senha:', err);
+        showToast(`❌ Erro: ${err.message}`, 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function chamarNovamente() {
+      if (isLoading) return;
+      setLoading(true);
+      try {
+        // Alterna o trigger para forçar o evento real-time
+        const { data: trigData, error: trigErr } = await supabase
+          .from('trigger_chamar')
+          .select('ativo')
+          .eq('id', 1)
+          .single();
+        if (trigErr) throw trigErr;
+
+        const novoAtivo = !(trigData?.ativo ?? false);
+        const { error: upErr } = await supabase
+          .from('trigger_chamar')
+          .update({ ativo: novoAtivo, timestamp: Date.now() })
+          .eq('id', 1);
+        if (upErr) throw upErr;
+
+        showToast('🔊 Chamando novamente!');
+      } catch (err) {
+        console.error('Erro ao chamar novamente:', err);
+        showToast(`❌ Erro: ${err.message}`, 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function chamarSenhaManual() {
+      if (isLoading) return;
+      const numero = parseInt(manualNumero.value);
+      if (!numero || numero < 1) {
+        showToast('⚠️ Digite um número válido', 'error');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const guiche = getGuiche();
+        const senhaFormatada = `S${String(numero).padStart(3, '0')}`;
+        const timestamp = Date.now();
+
+        // Atualiza senha atual
+        const { error: senhaErr } = await supabase
+          .from('senha_atual')
+          .update({
+            numero: numero,
+            guiche: guiche,
+            timestamp: timestamp,
+            senha_formatada: senhaFormatada
+          })
+          .eq('id', 1);
+        if (senhaErr) throw senhaErr;
+
+        // Insere histórico
+        const { error: histErr } = await supabase
+          .from('historico')
+          .insert({
+            numero: numero,
+            guiche: guiche,
+            timestamp: timestamp,
+            senha_formatada: senhaFormatada
+          });
+        if (histErr) throw histErr;
+
+        updatePreview(senhaFormatada, guiche);
+        manualNumero.value = '';
+        showToast(`✅ Senha ${senhaFormatada} chamada manualmente!`);
+      } catch (err) {
+        console.error('Erro ao chamar senha manual:', err);
+        showToast(`❌ Erro: ${err.message}`, 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // ================================================================
+    // CARREGAR ESTADO INICIAL
+    // ================================================================
+    async function loadInitialState() {
+      try {
+        // Carrega senha atual
+        const { data: senhaAtual, error: senhaErr } = await supabase
+          .from('senha_atual')
+          .select('*')
+          .eq('id', 1)
+          .single();
+        if (!senhaErr && senhaAtual && senhaAtual.numero > 0) {
+          updatePreview(senhaAtual.senha_formatada, senhaAtual.guiche);
+        }
+
+        statusText.textContent = 'Conectado ao Supabase';
+        statusDot.className = 'status-dot online';
+      } catch (err) {
+        console.error('Erro ao carregar estado:', err);
+        statusText.textContent = 'Erro de conexão';
+        statusDot.className = 'status-dot offline';
+      }
+    }
+
+    // ================================================================
+    // REAL-TIME LISTENERS
+    // ================================================================
+    function setupRealtime() {
+      // Escuta mudanças na senha atual (para atualizar preview)
+      supabase
+        .channel('atendente-senha-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'senha_atual',
+            filter: 'id=eq.1'
+          },
+          (payload) => {
+            const novo = payload.new;
+            if (novo.numero > 0) {
+              updatePreview(novo.senha_formatada, novo.guiche);
+            }
+          }
+        )
+        .subscribe();
+    }
+
+    // ================================================================
+    // EVENT LISTENERS
+    // ================================================================
+
+    // Guichê personalizado
+    guicheSelect.addEventListener('change', () => {
+      if (guicheSelect.value === 'custom') {
+        guicheCustom.style.display = 'block';
+        guicheCustom.focus();
+      } else {
+        guicheCustom.style.display = 'none';
+      }
+    });
+
+    // Toggle senha manual
+    manualToggle.addEventListener('click', () => {
+      manualForm.classList.toggle('visible');
+      manualArrow.classList.toggle('open');
+      if (manualForm.classList.contains('visible')) {
+        manualNumero.focus();
+      }
+    });
+
+    // Botões
+    btnProxima.addEventListener('click', chamarProximaSenha);
+    btnChamarNovamente.addEventListener('click', chamarNovamente);
+    btnManual.addEventListener('click', chamarSenhaManual);
+
+    // Atalhos de teclado
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        chamarProximaSenha();
+      }
+      if (e.key === ' ') {
+        e.preventDefault();
+        chamarNovamente();
+      }
+    });
+
+    // Enter no campo de senha manual
+    manualNumero.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        chamarSenhaManual();
+      }
+    });
+
+    // ================================================================
+    // INICIALIZAÇÃO
+    // ================================================================
+    loadInitialState();
+    setupRealtime();
+    console.log('✅ Painel do Atendente iniciado com Supabase');
+  </script>
+</body>
+</html>
