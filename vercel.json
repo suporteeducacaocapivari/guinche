@@ -1,5 +1,9 @@
 {
-  "framework": null,
-  "buildCommand": null,
-  "outputDirectory": "."
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/atendente", "destination": "/atendente.html" },
+    { "source": "/tv", "destination": "/tv.html" },
+    { "source": "/login", "destination": "/index.html" },
+    { "source": "/totem", "destination": "/index.html" }
+  ]
 }
