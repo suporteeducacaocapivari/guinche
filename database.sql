@@ -2,7 +2,7 @@
 -- SCRIPT DE CONFIGURAÇÃO DO BANCO (Supabase SQL Editor)
 -- ================================================================
 -- Execute este script no SQL Editor do Supabase:
--- https://supabase.com/dashboard/project/vicxjzsfqloedmayejoy/sql/new
+-- https://supabase.com/dashboard/project/ozzigwftgkjctssefegy/sql/new
 -- ================================================================
 
 -- 1. Cria a tabela de senha_atual
